@@ -29,12 +29,11 @@ def error_matches():
 
 
 @pytest.fixture
-def scripts_dir(tmpdir_factory):
-    working_dir = str(tmpdir_factory.getbasetemp())
+def scripts_dir(tmpdir):
     source_dir = os.path.dirname(__file__)
 
     source_data_dir = os.path.join(source_dir, 'data')
-    working_data_dir = os.path.join(working_dir, 'data')
+    working_data_dir = os.path.join(str(tmpdir), 'data')
     shutil.copytree(source_data_dir, working_data_dir)
 
     return working_data_dir
