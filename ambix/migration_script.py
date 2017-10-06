@@ -35,6 +35,8 @@ class MigrationScript:
 
     def change_down_revision(self, *new_down_revisions):
 
+        # TODO: don't change revision if it's the same
+
         if len(new_down_revisions) == 1:
             new_down_revisions = new_down_revisions[0]
 
@@ -47,7 +49,10 @@ class MigrationScript:
                 target=lambda t: t.value == 'down_revision',
             ).value.replace(repr(new_down_revisions))
 
-            if type(red[0]) is redbaron.nodes.StringNode:
+            docstring = red.find('string', value=re.compile(
+                '.*Revises.*', flags=re.MULTILINE | re.DOTALL,
+            ))
+            if docstring is not None:
                 if (
                     isinstance(new_down_revisions, collections.Iterable) and
                     not isinstance(new_down_revisions, str)
@@ -56,14 +61,13 @@ class MigrationScript:
                 else:
                     rev_string = str(new_down_revisions)
 
-                new_docs = re.sub(
-                    r'Revises:\s*.*$',
+                docstring.replace(re.sub(
+                    r'Revises:\s*\w+',
                     'Revises: {}'.format(rev_string),
-                    red[0].value,
+                    str(docstring),
                     flags=re.MULTILINE,
-                )
-                print('new docs: {}'.format(new_docs))
-                red[0].replace(new_docs)
+                ))
+
             with open(self.file_path, 'w') as script:
                 script.write(red.dumps())
             self.down_revision = new_down_revisions
