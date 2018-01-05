@@ -15,6 +15,7 @@ setup(
     description=project_metadata['description'],
     license=project_metadata['license'],
     install_requires=[
+        'click',
         'logbook',
         'pendulum',
         'py-buzz',
@@ -33,6 +34,7 @@ setup(
     entry_points={
         'console_scripts': [
             'ambix-flatten = ambix.tools:flatten',
+            'ambix-prune = ambix.tools:prune',
         ],
     },
 )

@@ -34,12 +34,26 @@ class MigrationHome:
 
     def flatten(self):
         dependencies = self.generate_dependency_graph()
-        print(dependencies)
         flattened = toposort.toposort_flatten(dependencies)
-        print(list(flattened))
         pairs = pairwise(flattened)
-        print(pairs)
-        [
+        for (new_down, rev) in pairs:
             self.migrations[rev].change_down_revision(new_down)
-            for (new_down, rev) in pairs
-        ]
+
+    def prune(self, rev):
+        AmbixError.require_condition(
+            rev in self.migrations,
+            "Couldn't find a revision for {}",
+            rev,
+        )
+        new_down = self.migrations[rev].down_revision
+        for migration in self.migrations.values():
+            if migration.down_revision is None:
+                continue
+            elif rev == migration.down_revision:
+                migration.change_down_revision(new_down)
+            elif rev in migration.down_revision:
+                migration.change_down_revision(
+                    [dr for dr in migration.down_revision if dr != rev]
+                )
+        os.remove(self.migrations[rev].file_path)
+        del self.migrations[rev]

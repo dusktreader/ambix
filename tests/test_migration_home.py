@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from ambix.migration_home import MigrationHome
@@ -19,6 +20,8 @@ class TestMigrationHome:
             'cccccc',
             'dddddd',
             'eeeeee',
+            'ffffff',
+            'gggggg',
         ]
 
     def test_generate_dependency_graph(self, scripts_dir):
@@ -29,6 +32,8 @@ class TestMigrationHome:
             'cccccc': {'bbbbbb'},
             'dddddd': {'bbbbbb'},
             'eeeeee': {'cccccc', 'dddddd'},
+            'ffffff': {'dddddd'},
+            'gggggg': {'eeeeee', 'ffffff'},
         }
 
     def test_flatten(self, scripts_dir):
@@ -41,4 +46,42 @@ class TestMigrationHome:
             'cccccc': {'bbbbbb'},
             'dddddd': {'cccccc'},
             'eeeeee': {'dddddd'},
+            'ffffff': {'eeeeee'},
+            'gggggg': {'ffffff'},
         }
+
+    def test_prune__delete_head(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        assert os.path.exists(os.path.join(
+            scripts_dir, 'gggggg-dummy-migration.py'
+        ))
+        home.prune('gggggg')
+        assert home.generate_dependency_graph() == {
+            'aaaaaa': {None},
+            'bbbbbb': {'aaaaaa'},
+            'cccccc': {'bbbbbb'},
+            'dddddd': {'bbbbbb'},
+            'eeeeee': {'cccccc', 'dddddd'},
+            'ffffff': {'dddddd'},
+        }
+        assert not os.path.exists(os.path.join(
+            scripts_dir, 'gggggg-dummy-migration.py'
+        ))
+
+    def test_prune__delete_complex_branch(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        assert os.path.exists(os.path.join(
+            scripts_dir, 'dddddd-dummy-migration.py'
+        ))
+        home.prune('dddddd')
+        assert home.generate_dependency_graph() == {
+            'aaaaaa': {None},
+            'bbbbbb': {'aaaaaa'},
+            'cccccc': {'bbbbbb'},
+            'eeeeee': {'cccccc'},
+            'ffffff': {'bbbbbb'},
+            'gggggg': {'eeeeee', 'ffffff'},
+        }
+        assert not os.path.exists(os.path.join(
+            scripts_dir, 'dddddd-dummy-migration.py'
+        ))
