@@ -2,6 +2,14 @@
  ambix
 *******
 
+|before| to |after|
+
+.. |before| image:: docs/images/before.png
+   :width: 45 %
+
+.. |after| image:: docs/images/after.png
+   :width: 45 %
+
 -----------------------------
 alembic history cleaning tool
 -----------------------------
