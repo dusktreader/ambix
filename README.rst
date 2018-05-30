@@ -34,3 +34,7 @@ To flatten alembic migrations, run the following command::
 To delete a specific revision, run the following command::
 
   $ ambix-prune <your-migration-directory> <id-of-revision-to-delete>
+
+To rebase a migration on different bases, run the following command:
+
+  $ ambix-rebase <your-migration-directory> <id-of-revision-to-rebase> <id-of-first-new-base> <id-of-second-new-base> ...

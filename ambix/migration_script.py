@@ -12,6 +12,17 @@ class MigrationScript:
         self.down_revision = down_revision
         self.file_path = file_path
 
+    def get_down_revisions(self):
+        if self.down_revision is None:
+            return set()
+        elif (
+            isinstance(self.down_revision, collections.Iterable) and
+            not isinstance(self.down_revision, str)
+        ):
+            return set(self.down_revision)
+        else:
+            return set([self.down_revision])
+
     @classmethod
     def parse_file(cls, file_path):
         with AmbixError.handle_errors(
@@ -39,6 +50,8 @@ class MigrationScript:
 
         if len(new_down_revisions) == 1:
             new_down_revisions = new_down_revisions[0]
+        elif len(new_down_revisions) == 0:
+            new_down_revisions = None
 
         with AmbixError.handle_errors('failed while changing down revision'):
             with open(self.file_path) as script:

@@ -35,6 +35,7 @@ setup(
         'console_scripts': [
             'ambix-flatten = ambix.tools:flatten',
             'ambix-prune = ambix.tools:prune',
+            'ambix-rebase = ambix.tools:rebase',
         ],
     },
 )

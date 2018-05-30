@@ -39,21 +39,34 @@ class MigrationHome:
         for (new_down, rev) in pairs:
             self.migrations[rev].change_down_revision(new_down)
 
-    def prune(self, rev):
+    def prune(self, rev, leave_migration=False):
         AmbixError.require_condition(
             rev in self.migrations,
             "Couldn't find a revision for {}",
             rev,
         )
-        new_down = self.migrations[rev].down_revision
+        rev_downs = self.migrations[rev].get_down_revisions()
         for migration in self.migrations.values():
-            if migration.down_revision is None:
+            mig_downs = migration.get_down_revisions()
+            if len(mig_downs) == 0:
                 continue
-            elif rev == migration.down_revision:
-                migration.change_down_revision(new_down)
-            elif rev in migration.down_revision:
+            elif rev in mig_downs:
                 migration.change_down_revision(
-                    [dr for dr in migration.down_revision if dr != rev]
+                    *(rev_downs | mig_downs - set([rev]))
                 )
-        os.remove(self.migrations[rev].file_path)
-        del self.migrations[rev]
+        if not leave_migration:
+            os.remove(self.migrations[rev].file_path)
+            del self.migrations[rev]
+
+    def heads(self):
+        graph = self.generate_dependency_graph()
+        possible_heads = set(graph.keys())
+        for down_rev_set in graph.values():
+            possible_heads = possible_heads - down_rev_set
+        return possible_heads
+
+    def rebase(self, rev, *new_bases):
+        if len(new_bases) == 0:
+            new_bases = self.heads()
+        self.prune(rev, leave_migration=True)
+        self.migrations[rev].change_down_revision(*new_bases)
