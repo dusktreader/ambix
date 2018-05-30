@@ -78,10 +78,68 @@ class TestMigrationHome:
             'aaaaaa': {None},
             'bbbbbb': {'aaaaaa'},
             'cccccc': {'bbbbbb'},
-            'eeeeee': {'cccccc'},
+            'eeeeee': {'bbbbbb', 'cccccc'},
             'ffffff': {'bbbbbb'},
             'gggggg': {'eeeeee', 'ffffff'},
         }
         assert not os.path.exists(os.path.join(
             scripts_dir, 'dddddd-dummy-migration.py'
         ))
+
+    def test_heads(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        assert home.heads() == {'gggggg'}
+        home.prune('gggggg')
+        assert home.heads() == {'eeeeee', 'ffffff'}
+
+    def test_rebase__default_new_base(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        home.rebase('eeeeee')
+        assert home.generate_dependency_graph() == {
+            'aaaaaa': {None},
+            'bbbbbb': {'aaaaaa'},
+            'cccccc': {'bbbbbb'},
+            'dddddd': {'bbbbbb'},
+            'ffffff': {'dddddd'},
+            'gggggg': {'ffffff', 'cccccc', 'dddddd'},
+            'eeeeee': {'gggggg'},
+        }
+
+    def test_rebase__specified_new_base(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        home.rebase('eeeeee', 'ffffff')
+        assert home.generate_dependency_graph() == {
+            'aaaaaa': {None},
+            'bbbbbb': {'aaaaaa'},
+            'cccccc': {'bbbbbb'},
+            'dddddd': {'bbbbbb'},
+            'ffffff': {'dddddd'},
+            'gggggg': {'ffffff', 'cccccc', 'dddddd'},
+            'eeeeee': {'ffffff'},
+        }
+
+    def test_rebase__multiple_new_base(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        home.rebase('eeeeee', 'ffffff', 'dddddd')
+        assert home.generate_dependency_graph() == {
+            'aaaaaa': {None},
+            'bbbbbb': {'aaaaaa'},
+            'cccccc': {'bbbbbb'},
+            'dddddd': {'bbbbbb'},
+            'ffffff': {'dddddd'},
+            'gggggg': {'ffffff', 'cccccc', 'dddddd'},
+            'eeeeee': {'ffffff', 'dddddd'},
+        }
+
+    def test_rebase__move_root(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        home.rebase('aaaaaa')
+        assert home.generate_dependency_graph() == {
+            'bbbbbb': {None},
+            'cccccc': {'bbbbbb'},
+            'dddddd': {'bbbbbb'},
+            'eeeeee': {'cccccc', 'dddddd'},
+            'ffffff': {'dddddd'},
+            'gggggg': {'eeeeee', 'ffffff'},
+            'aaaaaa': {'gggggg'},
+        }
