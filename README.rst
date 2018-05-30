@@ -17,7 +17,7 @@ mechanism to backup your migration folder before you use ambix.
 
 Requirements
 ------------
- - Python 3
+ - Python 3.4+
 
 Installing
 ----------
