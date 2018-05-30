@@ -4,6 +4,6 @@
     'description': 'a tool for reordering alembic migrations',
     'license': 'MIT',
     'name': 'ambix',
-    'release': '0.2.0',
-    'version': '0.2',
+    'release': '0.3.0',
+    'version': '0.3',
 }
