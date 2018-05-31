@@ -5,7 +5,7 @@
     'description': 'A tool for reordering alembic migrations',
     'license': 'MIT',
     'name': 'ambix',
-    'release': '0.2.0',
+    'release': '0.3.0',
     'url': 'https://github.com/dusktreader/ambix',
-    'version': '0.2',
+    'version': '0.3',
 }
