@@ -65,8 +65,46 @@ class MigrationHome:
             possible_heads = possible_heads - down_rev_set
         return possible_heads
 
-    def rebase(self, rev, *new_bases):
+    def move(self, rev, *new_bases):
+        """
+        Moves a single revision to descend from new_bases. Leaves any
+        descendant migrations of rev in place by first pruning rev
+        """
         if len(new_bases) == 0:
             new_bases = self.heads()
         self.prune(rev, leave_migration=True)
+        self.migrations[rev].change_down_revision(*new_bases)
+
+    def ancestors(self, rev):
+        """
+        provides a generator that finds all ancestors of a rev by performing a
+        depth-first search
+        """
+        visited = set()
+        yield from self._ancestors(rev, visited)
+
+    def _ancestors(self, rev, visited):
+        child = self.migrations[rev]
+        parents = child.get_down_revisions()
+        for parent in sorted(parents):
+            if parent in visited:
+                continue
+            visited.add(parent)
+            yield from self._ancestors(parent, visited=visited)
+            yield parent
+
+    def rebase(self, rev, *new_bases):
+        """
+        Moves a revision and all of its descendents to be based on new_bases
+        """
+        AmbixError.require_condition(
+            len(new_bases) > 0,
+            "At least one new base must be supplied",
+        )
+        for base in new_bases:
+            AmbixError.require_condition(
+                rev not in self.ancestors(base),
+                "Cannot rebase.  {} is an ancestor of new head {}",
+                rev, base,
+            )
         self.migrations[rev].change_down_revision(*new_bases)
