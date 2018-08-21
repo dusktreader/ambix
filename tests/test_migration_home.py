@@ -6,6 +6,25 @@ from ambix.exceptions import AmbixError
 
 
 class TestMigrationHome:
+    """
+    Tests for MigrationHome. Starting graph looks like:
+    .......................
+    .                     .
+    .      aaaaaa         .
+    .        |            .
+    .      bbbbbb         .
+    .       / \           .
+    .      /   \          .
+    .  ccccc  dddddd      .
+    .     \    /  \       .
+    .      \  /    \      .
+    .      eeeee  ffffff  .
+    .         \    /      .
+    .          \  /       .
+    .         gggggg      .
+    .                     .
+    .......................
+    """
 
     def test___init__(self, scripts_dir):
         with pytest.raises(AmbixError) as err_info:
@@ -35,6 +54,22 @@ class TestMigrationHome:
             'ffffff': {'dddddd'},
             'gggggg': {'eeeeee', 'ffffff'},
         }
+
+    def test_ancestors(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        assert list(home.ancestors('eeeeee')) == [
+            'aaaaaa',
+            'bbbbbb',
+            'cccccc',
+            'dddddd',
+        ]
+
+        assert list(home.ancestors('eeeeee')) == [
+            'aaaaaa',
+            'bbbbbb',
+            'cccccc',
+            'dddddd',
+        ]
 
     def test_flatten(self, scripts_dir):
         home = MigrationHome(scripts_dir)
@@ -92,9 +127,9 @@ class TestMigrationHome:
         home.prune('gggggg')
         assert home.heads() == {'eeeeee', 'ffffff'}
 
-    def test_rebase__default_new_base(self, scripts_dir):
+    def test_move__default_new_base(self, scripts_dir):
         home = MigrationHome(scripts_dir)
-        home.rebase('eeeeee')
+        home.move('eeeeee')
         assert home.generate_dependency_graph() == {
             'aaaaaa': {None},
             'bbbbbb': {'aaaaaa'},
@@ -105,9 +140,9 @@ class TestMigrationHome:
             'eeeeee': {'gggggg'},
         }
 
-    def test_rebase__specified_new_base(self, scripts_dir):
+    def test_move__specified_new_base(self, scripts_dir):
         home = MigrationHome(scripts_dir)
-        home.rebase('eeeeee', 'ffffff')
+        home.move('eeeeee', 'ffffff')
         assert home.generate_dependency_graph() == {
             'aaaaaa': {None},
             'bbbbbb': {'aaaaaa'},
@@ -118,9 +153,9 @@ class TestMigrationHome:
             'eeeeee': {'ffffff'},
         }
 
-    def test_rebase__multiple_new_base(self, scripts_dir):
+    def test_move__multiple_new_base(self, scripts_dir):
         home = MigrationHome(scripts_dir)
-        home.rebase('eeeeee', 'ffffff', 'dddddd')
+        home.move('eeeeee', 'ffffff', 'dddddd')
         assert home.generate_dependency_graph() == {
             'aaaaaa': {None},
             'bbbbbb': {'aaaaaa'},
@@ -131,9 +166,9 @@ class TestMigrationHome:
             'eeeeee': {'ffffff', 'dddddd'},
         }
 
-    def test_rebase__move_root(self, scripts_dir):
+    def test_move__root(self, scripts_dir):
         home = MigrationHome(scripts_dir)
-        home.rebase('aaaaaa')
+        home.move('aaaaaa')
         assert home.generate_dependency_graph() == {
             'bbbbbb': {None},
             'cccccc': {'bbbbbb'},
@@ -143,3 +178,65 @@ class TestMigrationHome:
             'gggggg': {'eeeeee', 'ffffff'},
             'aaaaaa': {'gggggg'},
         }
+
+    def test_rebase__normal_rebase(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        home.migrations['gggggg'].change_down_revision('cccccc')
+        home.migrations['eeeeee'].change_down_revision('dddddd')
+        """
+        now, the graph should look like this:
+        .......................
+        .                     .
+        .      aaaaaa         .
+        .        |            .
+        .      bbbbbb         .
+        .       / \           .
+        .      /   \          .
+        .  ccccc  dddddd      .
+        .   |      /  \       .
+        .   |     /    \      .
+        .   |  eeeee  ffffff  .
+        .   |                 .
+        .  gggggg             .
+        .                     .
+        .                     .
+        .......................
+        """
+        home.rebase('dddddd', 'gggggg')
+        assert home.generate_dependency_graph() == {
+            'aaaaaa': {None},
+            'bbbbbb': {'aaaaaa'},
+            'cccccc': {'bbbbbb'},
+            'dddddd': {'gggggg'},
+            'eeeeee': {'dddddd'},
+            'ffffff': {'dddddd'},
+            'gggggg': {'cccccc'},
+        }
+        """
+        finally, the graph should look like this:
+        .......................
+        .                     .
+        .        aaaaaa       .
+        .          |          .
+        .        bbbbbb       .
+        .         /           .
+        .        /            .
+        .    ccccc            .
+        .     |               .
+        .     |               .
+        .    gggggg           .
+        .     |               .
+        .     |               .
+        .    dddddd           .
+        .      /  \           .
+        .     /    \          .
+        .  eeeee  ffffff      .
+        .                     .
+        .......................
+        """
+
+    def test_rebase__fails_if_new_ancestry_is_incoherent(self, scripts_dir):
+        home = MigrationHome(scripts_dir)
+        with pytest.raises(AmbixError) as err_info:
+            home.rebase('dddddd', 'gggggg')
+        assert 'Cannot rebase' in str(err_info)
