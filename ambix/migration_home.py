@@ -1,36 +1,29 @@
-import os
-import toposort
+import pathlib
+import typing
 
+import toposort
 from ambix.exceptions import AmbixError
 from ambix.migration_script import MigrationScript
 from ambix.utilities import compose_iters, pairwise
 
 
 class MigrationHome:
-
-    def __init__(self, home_path):
+    def __init__(self, home_path: pathlib.Path):
         AmbixError.require_condition(
-            os.path.exists(home_path),
-            "migration home path '{}' doesn't exist",
-            home_path,
+            home_path.exists(),
+            f"migration home path '{home_path}' doesn't exist",
         )
         self.home_path = home_path
 
         self.migrations = {}
-        for migration_file in os.listdir(self.home_path):
-            if not migration_file.endswith('.py'):
+        for migration_file in self.home_path.iterdir():
+            if not migration_file.suffix == ".py":
                 continue
-            script = MigrationScript.parse_file(os.path.join(
-                self.home_path,
-                migration_file,
-            ))
+            script = MigrationScript.parse_file(migration_file)
             self.migrations[script.revision] = script
 
     def generate_dependency_graph(self):
-        return {
-            k: set(compose_iters(v.down_revision))
-            for (k, v) in self.migrations.items()
-        }
+        return {k: set(compose_iters(v.down_revision)) for (k, v) in self.migrations.items()}
 
     def flatten(self):
         dependencies = self.generate_dependency_graph()
@@ -39,11 +32,10 @@ class MigrationHome:
         for (new_down, rev) in pairs:
             self.migrations[rev].change_down_revision(new_down)
 
-    def prune(self, rev, leave_migration=False):
+    def prune(self, rev: str, leave_migration: bool = False):
         AmbixError.require_condition(
             rev in self.migrations,
-            "Couldn't find a revision for {}",
-            rev,
+            f"Couldn't find a revision for {rev}",
         )
         rev_downs = self.migrations[rev].get_down_revisions()
         for migration in self.migrations.values():
@@ -51,12 +43,9 @@ class MigrationHome:
             if len(mig_downs) == 0:
                 continue
             elif rev in mig_downs:
-                migration.change_down_revision(
-                    *(rev_downs | mig_downs - set([rev]))
-                )
+                migration.change_down_revision(*(rev_downs | mig_downs - set([rev])))
         if not leave_migration:
-            os.remove(self.migrations[rev].file_path)
-            del self.migrations[rev]
+            self.migrations.pop(rev).file_path.unlink()
 
     def heads(self):
         graph = self.generate_dependency_graph()
@@ -65,7 +54,7 @@ class MigrationHome:
             possible_heads = possible_heads - down_rev_set
         return possible_heads
 
-    def move(self, rev, *new_bases):
+    def move(self, rev: str, *new_bases: typing.List[str]):
         """
         Moves a single revision to descend from new_bases. Leaves any
         descendant migrations of rev in place by first pruning rev
@@ -75,7 +64,7 @@ class MigrationHome:
         self.prune(rev, leave_migration=True)
         self.migrations[rev].change_down_revision(*new_bases)
 
-    def ancestors(self, rev):
+    def ancestors(self, rev: str) -> typing.Iterator[MigrationScript]:
         """
         provides a generator that finds all ancestors of a rev by performing a
         depth-first search
@@ -83,7 +72,7 @@ class MigrationHome:
         visited = set()
         yield from self._ancestors(rev, visited)
 
-    def _ancestors(self, rev, visited):
+    def _ancestors(self, rev: str, visited: typing.List[MigrationScript]) -> typing.Iterator[MigrationScript]:
         child = self.migrations[rev]
         parents = child.get_down_revisions()
         for parent in sorted(parents):
@@ -93,7 +82,7 @@ class MigrationHome:
             yield from self._ancestors(parent, visited=visited)
             yield parent
 
-    def rebase(self, rev, *new_bases):
+    def rebase(self, rev: str, *new_bases: typing.List[str]):
         """
         Moves a revision and all of its descendents to be based on new_bases
         """
@@ -104,7 +93,6 @@ class MigrationHome:
         for base in new_bases:
             AmbixError.require_condition(
                 rev not in self.ancestors(base),
-                "Cannot rebase.  {} is an ancestor of new head {}",
-                rev, base,
+                f"Cannot rebase. {rev} is an ancestor of new head {base}",
             )
         self.migrations[rev].change_down_revision(*new_bases)
